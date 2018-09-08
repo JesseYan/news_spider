@@ -15,7 +15,6 @@ incremental==17.5.0
 inflect==0.2.5
 ipaddress==1.0.22
 lxml==4.2.1
-mysqlclient==1.3.12
 parsel==1.4.0
 Pillow==5.1.0
 psutil==5.4.5

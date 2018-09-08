@@ -17,6 +17,7 @@ from tools.scrapy_tasks import put_task, get_tasks_count
 
 
 def job_put_tasks(spider_name):
+    print("===job_put_tasks for:", spider_name)
     # 如果任务队列没有消耗完毕, 不处理
     tasks_count = get_tasks_count(spider_name)
     if tasks_count:

@@ -42,6 +42,8 @@ class FetchResultItem(scrapy.Item):
     article_tags = scrapy.Field()
     article_id = scrapy.Field()
     article_pub_time = scrapy.Field()
+    impression_count = scrapy.Field()
+    comment_count = scrapy.Field()
 
 
 class ChannelItem(scrapy.Item):

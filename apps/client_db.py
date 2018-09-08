@@ -41,7 +41,10 @@ def get_item(model_class, pk_id):
 def get_all(model_class, *args, **kwargs):
     session = db_session_mysql()
     try:
+        print("===model_class:", model_class)
+        print("===*args:", *args)
         result = session.query(model_class).filter(*args).filter_by(**kwargs).all()
+        print("===result len:", len(result))
         return result
     finally:
         session.close()

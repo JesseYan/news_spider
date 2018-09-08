@@ -43,6 +43,11 @@ def get_as_cp():
     return AS, CP
 
 
+#  fixme
+def parse_toutiao_article_info():
+    pass
+
+
 def parse_toutiao_js_body(html_body, url=''):
     """
     解析js

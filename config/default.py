@@ -25,7 +25,7 @@ HOST_IP = '0.0.0.0'
 DB_MYSQL = {
     'host': HOST_IP,
     'user': 'root',
-    'passwd': '123456',
+    'passwd': '110',
     'port': 3306,
     'db': 'news_spider'
 }

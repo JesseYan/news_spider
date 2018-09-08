@@ -24,8 +24,11 @@ class ToutiaoMSpider(scrapy.Spider):
     """
     头条蜘蛛
     """
-    name = 'toutiao'
-    allowed_domains = ['toutiao.com', 'snssdk.com']
+    name = 'wb'
+    web_host_url = "https://m.toutiao.com"
+    allowed_domains = ['toutiao.com', 'snssdk.com', web_host_url]
+    DOWNLOAD_DELAY = 0.5
+    FRESH_DELAY = 1*60
 
     custom_settings = dict(
         COOKIES_ENABLED=True,
@@ -47,7 +50,7 @@ class ToutiaoMSpider(scrapy.Spider):
             'news.pipelines.store_mysql.StoreMysqlPipeline': 450,
             'news.pipelines.de_duplication_request.DeDuplicationRequestPipeline': 500,  # 去重请求
         },
-        DOWNLOAD_DELAY=4
+        DOWNLOAD_DELAY=DOWNLOAD_DELAY
     )
 
     # start_urls = ['http://toutiao.com/']
@@ -68,26 +71,18 @@ class ToutiaoMSpider(scrapy.Spider):
             'utm_campaign': 'client_share',
             'wxshare_count': '1',
         }
-
-        task_id = pop_task(self.name)
-
-        if not task_id:
-            print('%s task is empty' % self.name)
-            return
-        print('%s task id: %s' % (self.name, task_id))
-
-        task_item = get_item(FetchTask, task_id)
-        fetch_url = 'http://m.toutiao.com/profile/%s/' % task_item.follow_id
-        url_profile = get_update_url(fetch_url, url_params)
-        meta = {
-            'task_id': task_item.id,
-            'platform_id': task_item.platform_id,
-            'channel_id': task_item.channel_id,
-            'follow_id': task_item.follow_id,
-            'follow_name': task_item.follow_name,
+        url = 'http://open.snssdk.com/jssdk_signature/'
+        url_params = {
+            'appid': 'wxe8b89be1715734a0',
+            'noncestr': 'Wm3WZYTPz0wzccnW',
+            'timestamp': '%13d' % (time.time() * 1000),
+            'callback': 'jsonp2',
         }
-        yield scrapy.Request(url=url_profile, callback=self.get_profile, meta=meta,
-                             headers=self.custom_settings['DEFAULT_REQUEST_HEADERS'])
+        url_jssdk_signature = get_update_url(url, url_params)
+        yield scrapy.Request(url=url_jssdk_signature,
+                             callback=self.jssdk_signature,
+                             headers=self.custom_settings['DEFAULT_REQUEST_HEADERS'],
+                             cookies=None)
 
     def get_profile(self, response):
         userid = response.xpath('//button[@itemid="topsharebtn"]/@data-userid').extract_first(default='')
@@ -112,28 +107,40 @@ class ToutiaoMSpider(scrapy.Spider):
         AS, CP = get_as_cp()
         jsonp_index = 3
 
-        url = 'https://www.toutiao.com/pgc/ma/'
+        url = 'https://m.toutiao.com/list/'
+        # url_params = {
+        #     'page_type': 1,
+        #     'max_behot_time': '',
+        #     'uid': response.meta['userid'],
+        #     'media_id': response.meta['mediaid'],
+        #     'output': 'json',
+        #     'is_json': 1,
+        #     'count': 20,
+        #     'from': 'user_profile_app',
+        #     'version': 2,
+        #     'as': AS,
+        #     'cp': CP,
+        #     'callback': 'jsonp%d' % jsonp_index,
+        # }
         url_params = {
-            'page_type': 1,
-            'max_behot_time': '',
-            'uid': response.meta['userid'],
-            'media_id': response.meta['mediaid'],
+            'tag': 'news_hot',
+            'max_behot_time': '%10d' % time.time(),
+            'format': 'json_raw',
             'output': 'json',
             'is_json': 1,
             'count': 20,
-            'from': 'user_profile_app',
             'version': 2,
             'as': AS,
             'cp': CP,
             'callback': 'jsonp%d' % jsonp_index,
         }
         url_article_list = get_update_url(url, url_params)
-        url_article_list = "https://www.toutiao.com/pgc/ma/?page_type=1&max_behot_time=&uid=6555293927&media_id=6555293927&output=json&is_json=1&count=20&from=user_profile_app&version=2&as=A1D53BF94259E77&cp=5B92C98E87777E1&callback=jsonp3"
+        # url_article_list = "https://m.toutiao.com/list/?tag=__all__&ac=wap&count=20&format=json_raw&as=A1755BB952EA81E&cp=5B922AF8A19E2E1&max_behot_time=1536333324"
 
         print("===url_article_list:", url_article_list)
 
         meta = dict(response.meta, jsonp_index=jsonp_index)
-        print("===meta:", meta)
+        # print("===meta:", meta)
 
         # print("===headers:", response.headers)
 
@@ -146,35 +153,57 @@ class ToutiaoMSpider(scrapy.Spider):
         :return:
         """
         body = response.body_as_unicode()
-        print("headers:===\n", response.request.headers)
+        # print("headers:===\n", response.request.headers)
         # print("body:====\n", body)
 
         jsonp_text = 'jsonp%d' % response.meta.get('jsonp_index', 0)
         result = json.loads(body.lstrip('%s(' % jsonp_text).rstrip(')'))
+
+        # 详情
+        data_list = result.get('data', [])
+        print("\n====data_list len:", len(data_list))
+        for data_item in data_list:
+            detail_url = self.web_host_url + data_item.get('source_url') + 'info/'
+            print("****detail_url:", detail_url)
+            article_url = self.web_host_url + data_item.get('source_url')
+
+            article_id = data_item['item_id']
+            article_title = data_item['title']
+            pub_time = data_item['behot_time']
+            keywords = data_item['keywords'] if 'keywords' in data_item else ''
+
+            meta = dict(response.meta,
+                        detail_url=detail_url,
+                        article_url=article_url,
+                        item_id=article_id,
+                        article_title=article_title,
+                        article_pub_time=pub_time,
+                        keywords=keywords,
+                        )
+            yield scrapy.Request(url=detail_url, callback=self.parse_article_detail, meta=meta)
+
         # 翻页
         has_more = result.get('has_more')
         if has_more:
-            max_behot_time = result['next']['max_behot_time']
+            max_behot_time = ''
+            if 'next' in result and 'max_behot_time' in result['next']:
+                max_behot_time = result['next']['max_behot_time']
             AS, CP = get_as_cp()
             jsonp_index = response.meta.get('jsonp_index', 0) + 1
 
             url_params_next = {
-                'max_behot_time': max_behot_time,
+                'max_behot_time': max_behot_time or '%10d' % time.time(),
                 'as': AS,
                 'cp': CP,
                 'callback': 'jsonp%d' % jsonp_index,
             }
+            print("max_behot_time:", url_params_next['max_behot_time'])
 
             url_article_list_next = get_update_url(response.url, url_params_next)
 
             meta = dict(response.meta, jsonp_index=jsonp_index)
+            time.sleep(self.FRESH_DELAY)
             yield scrapy.Request(url=url_article_list_next, callback=self.parse_article_list, meta=meta)
-        # 详情
-        data_list = result.get('data', [])
-        for data_item in data_list:
-            detail_url = data_item.get('source_url')
-            meta = dict(response.meta, detail_url=detail_url)
-            yield scrapy.Request(url=detail_url, callback=self.parse_article_detail, meta=meta)
 
     def parse_article_detail(self, response):
         """
@@ -182,33 +211,31 @@ class ToutiaoMSpider(scrapy.Spider):
         :param response:
         :return:
         """
-        toutiao_body = response.body_as_unicode()
-        js_body = parse_toutiao_js_body(toutiao_body, response.meta['detail_url'])
-        if not js_body:
-            return
-        pj = ParseJsTt(js_body=js_body)
+        body = response.body_as_unicode()
+        result = json.loads(body)['data']
 
-        article_id = pj.parse_js_item_id()
-        article_title = pj.parse_js_title()
-        article_abstract = pj.parse_js_abstract()
-        article_content = pj.parse_js_content()
-        article_pub_time = pj.parse_js_pub_time()
-        article_tags = pj.parse_js_tags()
+        # print("==article body:", toutiao_body)
+        # fixme add 评论数，阅读数；
+        print('\n====result:', result)
+        impression_count = result['impression_count'] if 'impression_count' in result else 0
+        comment_count = result['comment_count'] if 'comment_count' in result else 0
 
         fetch_result_item = FetchResultItem()
-        fetch_result_item['task_id'] = response.meta['task_id']
-        fetch_result_item['platform_id'] = response.meta['platform_id']
-        fetch_result_item['platform_name'] = platform_name_map.get(response.meta['platform_id'], '')
-        fetch_result_item['channel_id'] = response.meta['channel_id']
-        fetch_result_item['channel_name'] = channel_name_map.get(response.meta['channel_id'], '')
-        fetch_result_item['article_id'] = article_id
-        fetch_result_item['article_title'] = article_title
-        fetch_result_item['article_author_id'] = response.meta['follow_id']
-        fetch_result_item['article_author_name'] = response.meta['follow_name']
-        fetch_result_item['article_pub_time'] = time_local_to_utc(article_pub_time).strftime('%Y-%m-%d %H:%M:%S')
-        fetch_result_item['article_url'] = response.url or response.meta['detail_url']
-        fetch_result_item['article_tags'] = article_tags
-        fetch_result_item['article_abstract'] = article_abstract
-        fetch_result_item['article_content'] = article_content
+        fetch_result_item['task_id'] = 0
+        fetch_result_item['platform_id'] = 0
+        fetch_result_item['platform_name'] = platform_name_map.get(3, '')
+        fetch_result_item['channel_id'] = 0
+        fetch_result_item['channel_name'] = '0'
+        fetch_result_item['article_id'] = response.meta['item_id']
+        fetch_result_item['article_title'] = response.meta['article_title']
+        fetch_result_item['article_pub_time'] = time_local_to_utc(response.meta['article_pub_time']).strftime('%Y-%m-%d %H:%M:%S')
+        fetch_result_item['article_url'] = response.url or response.meta['article_url']
+        fetch_result_item['article_tags'] = response.meta.get('keywords')
+        fetch_result_item['article_abstract'] = ''
+        fetch_result_item['article_content'] = result['content']
+        fetch_result_item['impression_count'] = impression_count
+        fetch_result_item['comment_count'] = comment_count
+
+        print("===crawl url:", fetch_result_item['article_url'])
 
         yield fetch_result_item

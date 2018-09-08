@@ -13,6 +13,7 @@ from apps.client_db import redis_client
 
 
 def pop_task(spider_name):
+    print("####pop_task:", spider_name)
     key_set = 'scrapy:tasks_set:%(spider_name)s' % {'spider_name': spider_name}
     return redis_client.spop(key_set)
 
