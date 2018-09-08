@@ -229,7 +229,7 @@ class ToutiaoMSpider(scrapy.Spider):
         fetch_result_item['article_id'] = response.meta['item_id']
         fetch_result_item['article_title'] = response.meta['article_title']
         fetch_result_item['article_pub_time'] = time_local_to_utc(response.meta['article_pub_time']).strftime('%Y-%m-%d %H:%M:%S')
-        fetch_result_item['article_url'] = response.url or response.meta['article_url']
+        fetch_result_item['article_url'] = response.meta['article_url']
         fetch_result_item['article_tags'] = response.meta.get('keywords')
         fetch_result_item['article_abstract'] = ''
         fetch_result_item['article_content'] = result['content']
