@@ -52,6 +52,8 @@ CREATE TABLE `fetch_result` (
   `article_pub_time` DATETIME DEFAULT '1000-01-01 00:00:00' COMMENT '文章发布时间',
   `create_time` TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
   `update_time` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+  `impression_count` int(11) DEFAULT '0' COMMENT '阅读数',
+  `comment_count` int(11) DEFAULT '0' COMMENT '评论数',
   PRIMARY KEY (`id`),
   KEY idx_task_id (`task_id`),
   UNIQUE KEY idx_platform_article_id (`platform_id`, `article_id`),

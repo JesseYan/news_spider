@@ -48,6 +48,8 @@ class FetchResult(Base):
     article_pub_time = Column(DateTime, index=True, server_default=text("'1000-01-01 00:00:00'"))
     create_time = Column(DateTime, nullable=False, index=True, server_default=text("CURRENT_TIMESTAMP"))
     update_time = Column(DateTime, nullable=False, index=True, server_default=text("CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP"))
+    impression_count = Column(Integer, nullable=False, server_default=text("'0'"))
+    comment_count = Column(Integer, nullable=False, server_default=text("'0'"))
 
 
 class FetchTask(Base):
